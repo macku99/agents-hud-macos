@@ -22,9 +22,15 @@ swift build -c release --arch arm64
 bin_dir="$(swift build -c release --arch arm64 --show-bin-path)"
 
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_dir/AgentsHUD" "$app/Contents/MacOS/AgentsHUD"
 cp "Resources/Info.plist" "$app/Contents/Info.plist"
+# Assets.car holds the icon macOS draws in every look; AppIcon.icns covers views that read only .icns.
+cp "Resources/Assets.car" "Resources/AppIcon.icns" "$app/Contents/Resources/"
+# The floating H tile shows the icon's art at 56 pt, 112 px on a Retina display.
+sips -Z 112 "Icon/AppIcon.icon/Assets/tile.png" --out "$app/Contents/Resources/HTile.png" >/dev/null
+# sips exits 0 even when it writes nothing, and the tile would quietly fall back to glass.
+[[ -f "$app/Contents/Resources/HTile.png" ]] || { echo "error: sips wrote no HTile.png" >&2; exit 1; }
 
 # A secure timestamp comes from Apple's timestamp server and only matters for notarization,
 # which a build installed only on its owner's Macs never goes through.

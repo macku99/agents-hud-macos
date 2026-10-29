@@ -1,0 +1,13 @@
+{
+  "fill" : { "automatic-gradient" : "srgb:0.00000,0.25882,0.14510,1.00000" },
+  "groups" : [
+    {
+      "layers" : [
+        { "glass" : false, "image-name" : "tile.png", "name" : "tile" }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : false, "value" : 0.5 }
+    }
+  ],
+  "supported-platforms" : { "squares" : [ "macOS" ] }
+}

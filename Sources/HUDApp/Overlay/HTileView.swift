@@ -1,8 +1,8 @@
 import AppKit
 
 extension OverlayController {
-    /// H: the glass tile with its glyph, the working ring and the attention badge. Reports clicks and
-    /// drags; where H goes is the controller's call.
+    /// H: the app icon's tile (the glass tile with its glyph when there is no icon art), the working ring and
+    /// the attention badge. Reports clicks and drags; where H goes is the controller's call.
     final class HTileView: NSView {
         /// Room around the tile for the ring, the badge and the shadow.
         nonisolated static let padding: CGFloat = 16
@@ -57,7 +57,24 @@ extension OverlayController {
             ring.frame = tileRect.insetBy(dx: -Ring.inset - Self.ringOutset, dy: -Ring.inset - Self.ringOutset)
             ring.isHidden = true
             badgeView.isHidden = true
-            for view in [glass, face, ring, badgeView] as [NSView] { addSubview(view) }
+            let surface: [NSView] = if let art = Self.iconArt { [Self.artView(art, frame: tileRect)] } else { [glass, face] }
+            for view in surface + [ring, badgeView] { addSubview(view) }
+        }
+
+        /// The app icon's art, which bundle-app.sh ships as HTile.png. A development build run from `.build` has
+        /// no bundle and keeps the drawn glass tile.
+        private static let iconArt = Bundle.main.url(forResource: "HTile", withExtension: "png")
+            .flatMap(NSImage.init(contentsOf:))
+
+        private static func artView(_ art: NSImage, frame: CGRect) -> NSView {
+            let view = NSImageView(frame: frame)
+            view.image = art
+            view.imageScaling = .scaleAxesIndependently
+            view.wantsLayer = true
+            view.layer?.cornerRadius = 18
+            view.layer?.cornerCurve = .continuous
+            view.layer?.masksToBounds = true
+            return view
         }
 
         @available(*, unavailable)

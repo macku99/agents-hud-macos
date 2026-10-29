@@ -6,6 +6,10 @@
 	<string>Agents HUD</string>
 	<key>CFBundleExecutable</key>
 	<string>AgentsHUD</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>app.itfrombit.agentshud</string>
 	<key>CFBundleInfoDictionaryVersion</key>
