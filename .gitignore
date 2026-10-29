@@ -1,0 +1,17 @@
+.DS_Store
+
+# SwiftPM
+/.build/
+/.swiftpm/
+
+# Bundled app output
+/dist/
+
+# fastlane: secrets and run output
+/fastlane/.env
+/fastlane/report.xml
+/fastlane/test_output/
+/vendor/bundle/
+
+# bundler local config
+/.bundle/

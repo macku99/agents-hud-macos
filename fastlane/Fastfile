@@ -1,0 +1,124 @@
+require "open3"
+
+default_platform(:mac)
+
+# `sh` and plain Ruby in a lane run inside fastlane/, while actions resolve paths
+# from the repo root, so every path here is absolute.
+ROOT          = File.expand_path("..", __dir__)
+APP_NAME      = "Agents HUD"
+APP_PATH      = File.join(ROOT, "dist", "#{APP_NAME}.app")
+INFO_PLIST    = File.join(ROOT, "Resources", "Info.plist")
+INSTALL_PATH  = File.expand_path("~/Applications/#{APP_NAME}.app")
+EXECUTABLE    = "AgentsHUD"
+SIGNING_IDENTITY = ENV["SIGNING_IDENTITY"].to_s.empty? ? "Agents HUD Local" : ENV["SIGNING_IDENTITY"]
+
+platform :mac do
+  ## ─── Test ───────────────────────────────────────────────────────────
+
+  desc "Run every test target with swift test"
+  lane :test do
+    sh("swift", "test", "--package-path", ROOT)
+  end
+
+  ## ─── Build ──────────────────────────────────────────────────────────
+
+  # A literal, not SIGNING_IDENTITY: fastlane writes lane descriptions into the tracked
+  # fastlane/README.md, and an override would dirty the tree for the next release.
+  desc "Build dist/#{APP_NAME}.app signed with the Agents HUD Local identity (SIGNING_IDENTITY overrides it)"
+  lane :build do
+    ENV["SIGNING_IDENTITY"] = SIGNING_IDENTITY
+    sh("bash", File.join(ROOT, "scripts", "bundle-app.sh"))
+  end
+
+  ## ─── Install ────────────────────────────────────────────────────────
+
+  desc "Quit the running HUD, replace ~/Applications/#{APP_NAME}.app with the signed build in dist/, and open it"
+  lane :install do
+    UI.user_error!("No app at #{APP_PATH} — run `fastlane build` first") unless File.directory?(APP_PATH)
+    ensure_signed_by_identity
+
+    # Copy next to the installed app first, so a failed copy leaves the installed app untouched.
+    staging = "#{INSTALL_PATH}.installing"
+    previous = "#{INSTALL_PATH}.previous"
+    FileUtils.mkdir_p(File.dirname(INSTALL_PATH))
+    FileUtils.rm_rf([staging, previous])
+    sh("ditto", APP_PATH, staging)
+
+    quit_running_app
+    File.rename(INSTALL_PATH, previous) if File.exist?(INSTALL_PATH)
+    File.rename(staging, INSTALL_PATH)
+    FileUtils.rm_rf(previous)
+    sh("open", INSTALL_PATH)
+  end
+
+  ## ─── Versioning ─────────────────────────────────────────────────────
+
+  desc "Bump CFBundleShortVersionString (`type:` patch (default), minor or major) and increment CFBundleVersion"
+  lane :bump do |options|
+    type = (options[:type] || "patch").to_s
+    UI.user_error!("type must be patch, minor or major, got '#{type}'") unless %w[patch minor major].include?(type)
+
+    version = get_info_plist_value(path: INFO_PLIST, key: "CFBundleShortVersionString").to_s
+    UI.user_error!("CFBundleShortVersionString '#{version}' is not MAJOR.MINOR.PATCH") unless version.match?(/\A\d+\.\d+\.\d+\z/)
+    build = get_info_plist_value(path: INFO_PLIST, key: "CFBundleVersion").to_s
+    UI.user_error!("CFBundleVersion '#{build}' is not a whole number") unless build.match?(/\A\d+\z/)
+
+    major, minor, patch = version.split(".").map(&:to_i)
+    next_version =
+      case type
+      when "major" then "#{major + 1}.0.0"
+      when "minor" then "#{major}.#{minor + 1}.0"
+      else "#{major}.#{minor}.#{patch + 1}"
+      end
+    next_build = (build.to_i + 1).to_s
+
+    set_info_plist_value(path: INFO_PLIST, key: "CFBundleShortVersionString", value: next_version)
+    set_info_plist_value(path: INFO_PLIST, key: "CFBundleVersion", value: next_build)
+    UI.success("#{version} (#{build}) → #{next_version} (#{next_build})")
+  end
+
+  ## ─── Release ────────────────────────────────────────────────────────
+
+  desc "Test, build and install"
+  lane :release do
+    ensure_git_status_clean
+    test
+    build
+    install
+  end
+
+  ## ─── Helpers ────────────────────────────────────────────────────────
+
+  # SIGTERM instead of an AppleScript quit: `tell application` launches the app when
+  # it isn't running and asks for Automation permission for the terminal.
+  desc "Terminate a running HUD and wait for it to exit"
+  private_lane :quit_running_app do
+    # pkill exits 1 when nothing matched, which is fine here.
+    system("pkill", "-x", EXECUTABLE)
+    running = -> { system("pgrep", "-x", EXECUTABLE, out: File::NULL) }
+    20.times do
+      break unless running.call
+      sleep(0.25)
+    end
+    UI.user_error!("#{EXECUTABLE} is still running after 5 s") if running.call
+  end
+
+  # macOS records Launch at login against the app's signature, so only a build signed
+  # by the stable identity may replace the installed app; an ad-hoc signature changes
+  # with every build.
+  desc "Fail unless dist/#{APP_NAME}.app is signed by the #{SIGNING_IDENTITY} identity"
+  private_lane :ensure_signed_by_identity do
+    details, = Open3.capture2e("codesign", "-dvv", APP_PATH)
+    unless details.lines.map(&:chomp).include?("Authority=#{SIGNING_IDENTITY}")
+      authority = details[/^Authority=(.+)$/, 1] || "none, ad hoc or unsigned"
+      UI.user_error!("#{APP_PATH} is not signed by #{SIGNING_IDENTITY} (Authority: #{authority}). " \
+                     "Run `fastlane build`.")
+    end
+  end
+
+  ## ─── Failure handling ───────────────────────────────────────────────
+
+  error do |lane, exception|
+    UI.error("#{lane} failed: #{exception.message}")
+  end
+end

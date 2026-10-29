@@ -1,0 +1,64 @@
+fastlane documentation
+----
+
+# Installation
+
+Make sure you have the latest version of the Xcode command line tools installed:
+
+```sh
+xcode-select --install
+```
+
+For _fastlane_ installation instructions, see [Installing _fastlane_](https://docs.fastlane.tools/#installing-fastlane)
+
+# Available Actions
+
+## Mac
+
+### mac test
+
+```sh
+[bundle exec] fastlane mac test
+```
+
+Run every test target with swift test
+
+### mac build
+
+```sh
+[bundle exec] fastlane mac build
+```
+
+Build dist/Agents HUD.app signed with the Agents HUD Local identity (SIGNING_IDENTITY overrides it)
+
+### mac install
+
+```sh
+[bundle exec] fastlane mac install
+```
+
+Quit the running HUD, replace ~/Applications/Agents HUD.app with the signed build in dist/, and open it
+
+### mac bump
+
+```sh
+[bundle exec] fastlane mac bump
+```
+
+Bump CFBundleShortVersionString (`type:` patch (default), minor or major) and increment CFBundleVersion
+
+### mac release
+
+```sh
+[bundle exec] fastlane mac release
+```
+
+Test, build and install
+
+----
+
+This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
+
+More information about _fastlane_ can be found on [fastlane.tools](https://fastlane.tools).
+
+The documentation of _fastlane_ can be found on [docs.fastlane.tools](https://docs.fastlane.tools).
